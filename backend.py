@@ -16,8 +16,14 @@ EMBED_MODEL = LangchainEmbedding(embeddings)
 # 设置嵌入模型
 Settings.embed_model = EMBED_MODEL
 
-from rerankers import Reranker
-ranker = Reranker('mixedbread-ai/mxbai-rerank-large-v1', model_type='cross-encoder')
+# from rerankers import Reranker
+# ranker = Reranker('mixedbread-ai/mxbai-rerank-large-v1', model_type='cross-encoder')
+
+from pymilvus.model.reranker import BGERerankFunction
+bge_rf = BGERerankFunction(
+    model_name="BAAI/bge-reranker-v2-m3",  # Specify the model name. Defaults to `BAAI/bge-reranker-v2-m3`.
+    device="cuda:0" # Specify the device to use, e.g., 'cpu' or 'cuda:0'
+)
 
 @app.route('/get_knowledge', methods=["POST"])
 def get_knowledge():
@@ -42,6 +48,7 @@ def get_knowledge():
     index = load_index_from_storage(storage_context)
     print("index获取完成")
 
+
     retriever_engine = index.as_retriever(
         similarity_top_k=20,
     )
@@ -52,22 +59,13 @@ def get_knowledge():
 
     docss = [x.text for x in retrieve_chunk]
 
-    try:
-        if len(docss) > 1:
-            results = ranker.rank(query=prompt, docs=docss)
-            results = results.top_k(chunk_cnt)
-            print(f"rerank成功，重排后的chunk为：{results}")
-        else:
-            results = results.document
-    except:
-        results = retrieve_chunk[:chunk_cnt]
-        print(f"rerank失败，chunk为：{results}")
+    rerank_res = bge_rf(prompt, docss)
+
     chunk_text = ""
     chunk_show = ""
-    for i in range(len(results)):
-        # if results[i].score >= similarity_threshold:
-            chunk_text = chunk_text + f"## {i+1}:\n {results[i].text}\n"
-            chunk_show = chunk_show + f"## {i+1}:\n {results[i].text}\nscore: {round(results[i].score,2)}\n"
+    for i in range(len(rerank_res)):
+        chunk_text = chunk_text + f"## {i+1}:\n {rerank_res[i].text}\n"
+        chunk_show = chunk_show + f"## {i+1}:\n {rerank_res[i].text}\nscore: {round(rerank_res[i].score,2)}\n"
     print(f"已获取chunk：{chunk_text}")
 
     return chunk_text

@@ -28,7 +28,7 @@ pip install -r requirements.txt
 1. 在终端中输入和阿里云百炼API-KEY相关的环境变量
 
 ```
-export DASHSCOPE_API_KEY=<你的api-key>
+export DASHSCOPE_API_KEY=
 ```
 
 2. 启动知识库后端
